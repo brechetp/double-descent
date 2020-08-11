@@ -37,7 +37,9 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', '-bs', type=int, default=100, help='the dimension of the batch')
     parser.add_argument('--debug', action='store_true', help='debug')
     parser.add_argument('--size_max', type=int, default=None, help='maximum number of traning samples')
-    parser.add_argument('--width', '-w', type=int, default=300, help='the width of the hidden layer')
+    net_size = parser.add_mutually_exclusive_group(required=True)
+    net_size.add_argument('--num_parameters', type=int, help='the total number of parameters for the network')
+    net_size.add_argument('--width', '-w', type=int, help='the width of the hidden layer')
     #parser.add_argument('--loss', '-l', choices=['mse', 'ce'], default='ce', help='the type of loss to use')
     parser.add_argument('--vary_name', nargs='*', default=None, help='the name of the parameter to vary in the name (appended)')
     parser.add_argument('--checkpoint', help='path of the previous computation checkpoint')
@@ -53,6 +55,7 @@ if __name__ == '__main__':
 
 
 
+
     if args.checkpoint is not None:  # we have some networks weights to continue
         try:
             checkpoint = torch.load(args.checkpoint)  # checkpoint is a dictionnary with different keys
@@ -61,6 +64,13 @@ if __name__ == '__main__':
 
     else:
         checkpoint = dict()
+
+    if 'seed' in checkpoint.keys():
+        seed = checkpoint['seed']
+        torch.manual_seed(seed)
+    else:
+        seed = torch.random.seed()
+
 
     if 'args' in checkpoint.keys():
         args = checkpoint['args']  # restore the previous arguments
@@ -83,11 +93,13 @@ if __name__ == '__main__':
     output_path = os.path.join(args.output_root, args.name)
 
 
+
     os.makedirs(output_path, exist_ok=True)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     dtype = torch.float
     num_gpus = torch.cuda.device_count()
+
 
     if not args.debug:
         logs = open(os.path.join(output_path, 'logs.txt'), 'w')
@@ -119,7 +131,14 @@ if __name__ == '__main__':
     num_classes = 10
     imsize = next(iter(train_loader))[0].size()[1:]
     input_dim = imsize[0]*imsize[1]*imsize[2]
-    model = models.classifiers.FCNN(input_dim=input_dim, num_classes=num_classes, width=args.width)
+
+    if args.num_parameters is not None:
+        width = int(round((args.num_parameters - num_classes)/ (input_dim + 1 + num_classes)))
+    else:
+        width = args.width
+
+
+    model = models.classifiers.FCNN(input_dim=input_dim, num_classes=num_classes, width=width)
 
     num_parameters = utils.num_parameters(model)
     num_samples_train = size_train
@@ -152,7 +171,8 @@ if __name__ == '__main__':
     #optimizer = torch.optim.RMSprop(parameters, lr=args.learning_rate)
 
     optimizer = torch.optim.SGD(
-        parameters, lr=args.learning_rate, momentum=(args.gd_mode=='full') * 0 + (args.gd_mode =='stochastic')*0.9
+        #parameters, lr=args.learning_rate, momentum=(args.gd_mode=='full') * 0 + (args.gd_mode =='stochastic')*0.95
+        parameters, lr=args.learning_rate, momentum=0.95
     )
     #lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=500, gamma=0.5)
@@ -280,6 +300,7 @@ if __name__ == '__main__':
         stats['lr'].append(lr_scheduler.get_last_lr())
 
 
+
         print('ep {}, train loss (err) {:g} ({:g}), test loss (err) {:g} ({:g})'.format(
             epoch, stats['loss_train']['mse'][-1], stats['loss_train']['zo'][-1],
             stats['loss_test']['mse'][-1], stats['loss_test']['zo'][-1]),
@@ -318,7 +339,11 @@ if __name__ == '__main__':
                 'optimizer': optimizer.state_dict(),
                 'lr_scheduler': lr_scheduler.state_dict(),
                 'epochs': epoch,
+                'seed': seed,
             }
             torch.save(checkpoint, os.path.join(output_path, 'checkpoint.pth'))
+
+        if stats['loss_train']['zo'][-1] == 0.:
+            break
 
 
