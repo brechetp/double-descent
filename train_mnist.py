@@ -65,11 +65,11 @@ if __name__ == '__main__':
     else:
         checkpoint = dict()
 
-    if 'seed' in checkpoint.keys():
-        seed = checkpoint['seed']
-        torch.manual_seed(seed)
-    else:
-        seed = torch.random.seed()
+    #if 'seed' in checkpoint.keys():
+    #    seed = checkpoint['seed']
+    #    torch.manual_seed(seed)
+    #else:
+    #    seed = torch.random.seed()
 
 
     if 'args' in checkpoint.keys():
@@ -348,7 +348,7 @@ if __name__ == '__main__':
                 'optimizer': optimizer.state_dict(),
                 'lr_scheduler': lr_scheduler.state_dict(),
                 'epochs': epoch,
-                'seed': seed,
+                #'seed': seed,
             }
             torch.save(checkpoint, os.path.join(output_path, 'checkpoint.pth'))
 
