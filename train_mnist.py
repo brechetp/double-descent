@@ -29,7 +29,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser('Training a classification with different number of parameters')
     parser.add_argument('--dataset', '-dat', default='mnist', type=str, help='dataset')
     parser.add_argument('--dataroot', '-droot', default='./data/', help='the root for the input data')
-    parser.add_argument('--output_root', '-oroot', type=str, default='./results/mnist/200810/', help='output root for the results')
+    parser.add_argument('--output_root', '-oroot', type=str, default='./results/mnist/200811/', help='output root for the results')
     parser.add_argument('--name', default='baseline', type=str, help='the name of the experiment')
     parser.add_argument('--learning_rate', '-lr', type=float, default=1e-3, help='leraning rate')
     parser.add_argument('--save_model', action='store_true', default=True, help='stores the model after some epochs')
@@ -37,7 +37,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', '-bs', type=int, default=100, help='the dimension of the batch')
     parser.add_argument('--debug', action='store_true', help='debug')
     parser.add_argument('--size_max', type=int, default=None, help='maximum number of traning samples')
-    parser.add_argument('--width', '-w', type=int, default=1024, help='the width of the hidden layer')
+    parser.add_argument('--width', '-w', type=int, default=300, help='the width of the hidden layer')
     #parser.add_argument('--loss', '-l', choices=['mse', 'ce'], default='ce', help='the type of loss to use')
     parser.add_argument('--vary_name', nargs='*', default=None, help='the name of the parameter to vary in the name (appended)')
     parser.add_argument('--checkpoint', help='path of the previous computation checkpoint')
@@ -45,7 +45,7 @@ if __name__ == '__main__':
     parser_softmax = parser.add_mutually_exclusive_group(required=False)
     parser_softmax.add_argument('--softmax', action='store_true', help='if set uses the softmax distribution before the MSE loss')
     parser_softmax.add_argument('--no-softmax', dest='softmax', action='store_false', help='use output of last layer direclty')
-    parser.set_defaults(softmax=True)
+    parser.set_defaults(softmax=False)
 
 
 
@@ -160,14 +160,14 @@ if __name__ == '__main__':
     if 'optimizer' in checkpoint.keys():
 
         try:
-            optimizer.load_state_key(checkpoint['optimizer'])
+            optimizer.load_state_dict(checkpoint['optimizer'])
         except RuntimeError as e:
             print("Can't load model (error {})".format(e))
 
     if 'lr_scheduler' in checkpoint.keys():
 
         try:
-            lr_scheduler.load_state_key(checkpoint['lr_scheduler'])
+            lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
         except RuntimeError as e:
             print("Can't load model (error {})".format(e))
 
