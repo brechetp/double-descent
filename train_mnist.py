@@ -81,8 +81,6 @@ if __name__ == '__main__':
         args.name = name if name else args.name
 
     output_path = os.path.join(args.output_root, args.name)
-
-
     os.makedirs(output_path, exist_ok=True)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
