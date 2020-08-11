@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch
 import utils
-import
+import numpy as np
 
 class FCN(nn.Module):
     '''Fully-connected neural network'''

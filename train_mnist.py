@@ -138,7 +138,7 @@ if __name__ == '__main__':
         width = args.width
 
 
-    model = models.classifiers.FCNN(input_dim=input_dim, num_classes=num_classes, width=width)
+    model = models.classifiers.FCN(input_dim=input_dim, num_classes=num_classes, width=width)
 
     num_parameters = utils.num_parameters(model)
     num_samples_train = size_train
@@ -307,21 +307,30 @@ if __name__ == '__main__':
             file=logs, flush=True)
 
         fig = plt.figure()
-        plt.plot(stats['epochs'], stats['loss_train']['mse'], label='Train loss')
-        plt.plot(stats['epochs'], stats['loss_test']['mse'], label='Test loss')
-        plt.legend()
+        ax = fig.add_subplot(111)
+        ax.plot(stats['epochs'], stats['loss_train']['mse'], label='Train')
+        ax.plot(stats['epochs'], stats['loss_test']['mse'], label='Test')
+        ax.legend()
+        ax.set_title('MSE')
+        ax.set_yscale('log')
         plt.savefig(fname=os.path.join(output_path, 'mse_loss.pdf'))
 
         fig = plt.figure()
-        plt.plot(stats['epochs'], stats['loss_train']['zo'], label='Train loss')
-        plt.plot(stats['epochs'], stats['loss_test']['zo'], label='Test loss')
-        plt.legend()
+        ax = fig.add_subplot(111)
+        ax.plot(stats['epochs'], stats['loss_train']['zo'], label='Train')
+        ax.plot(stats['epochs'], stats['loss_test']['zo'], label='Test')
+        ax.legend()
+        ax.set_title('Zero-one loss')
+        ax.set_yscale('log')
         plt.savefig(fname=os.path.join(output_path, 'zero_one_loss.pdf'))
 
         fig = plt.figure()
-        plt.plot(stats['epochs'], stats['loss_train']['ce'], label='Train loss')
-        plt.plot(stats['epochs'], stats['loss_test']['ce'], label='Test loss')
-        plt.legend()
+        ax = fig.add_subplot(111)
+        ax.plot(stats['epochs'], stats['loss_train']['ce'], label='Train')
+        ax.plot(stats['epochs'], stats['loss_test']['ce'], label='Test')
+        ax.legend()
+        ax.set_title('Cross-entropy loss')
+        ax.set_yscale('log')
         plt.savefig(fname=os.path.join(output_path, 'cross_entropy_loss.pdf'))
 
         fig=plt.figure()
