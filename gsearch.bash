@@ -9,7 +9,6 @@ cp "$dir/$template" $fname
 sed -i "s/^\(#SBATCH -J\) test_slurm/\1 $name/" $fname
 
 #for n in 36 37 38 39 40 41 42 43 44;
-<<<<<<< HEAD
 for n in 59 60 61;
 do
     np=`echo "$n*10^4" | bc` &&
