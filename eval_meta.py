@@ -42,7 +42,13 @@ def main(argv):
             if argv.auto:  # overrides the input parameters
                 meta_dir=os.path.join(os.path.dirname(dirname), 'eval_meta')
                 meta_name='auto'
-            model = utils.parse_archi(log_fname)
+            archi = utils.parse_archi(log_fname)
+            model = utils.construct_FCN(archi)
+            norm_weights = utils.get_norm_weights(model)
+            if not 'norm_weights' in stats.keys():
+                # legacy for when the norm of the weights was not tracked
+                stats['norm_weights'] = [norm_weights]  # has to be a list
+
             meta_path = os.path.join(meta_dir, meta_name)
             os.makedirs(meta_path, exist_ok=True)
             meta_fname = os.path.join(meta_path, 'data.npz')
@@ -69,6 +75,8 @@ def main(argv):
             loss_train = meta_train['loss'].ravel()#[select]
             loss_test = meta_test['loss'].ravel()#[select]
 
+            norm_weights = meta_train['norm_weights'].ravel()
+
             losses_train = defaultdict(list)  # will keep the un raveled elements for the different losses
             losses_test = defaultdict(list)
             for (a, b) in zip(loss_train, loss_test):
@@ -89,6 +97,8 @@ def main(argv):
                 for key in losses_train.keys():  # assumes a dictionnary
                     losses_train[key] = losses_train[key][order]
                     losses_test[key] = losses_test[key][order]
+                norm_weights = norm_weights[order]
+
             else:
                 x = meta_train['label'].ravel()  # should be the same for the test data
             #select = np.where([l.find('gpw') == 0 for l in labels])
@@ -121,6 +131,16 @@ def main(argv):
                 ax.set_title(TITLE[key])
                 plt.savefig(os.path.join(output_path, '{}.pdf'.format(key)), format='pdf')
                 plt.close()
+
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.plot(x, norm_weights)
+            if argv.log_xscale:
+                ax.set_xscale('log')
+            ax.set_title('Mean weight norm')
+            plt.savefig(os.path.join(output_path, 'norm_weights.pdf'.format(key)), format='pdf')
+
+            plt.close('all')
             print('Done!')
 
 
@@ -187,9 +207,22 @@ def save_meta(meta_npz_fname, stats, args, label, loss='zo'):
         loss_train, loss_test = stats['loss_train'][-1], stats['loss_test'][-1]
         loss_dtype = ('loss', np.float32)
 
+    norm_weights = stats['norm_weights'][-1]  # should be a list
+
     num_parameters = stats['num_parameters']
-    new_entry_train = np.array([(label, args.__dict__, loss_train, num_parameters)], dtype=[('label', 'U25'), ('args', dict), loss_dtype,('num_parameters', np.int32 )])
-    new_entry_test = np.array([(label, args.__dict__, loss_test, num_parameters)], dtype=[('label', 'U25'), ('args', dict), loss_dtype, ('num_parameters', np.int32 )])
+
+    new_entry_train = np.array([(label, args.__dict__, loss_train, num_parameters, norm_weights)],
+                               dtype=[('label', 'U25'),
+                                      ('args', dict),
+                                      loss_dtype,
+                                      ('num_parameters', np.int32 ),
+                                      ('norm_weights', np.float32)
+                                      ])
+    new_entry_test = np.array([(label, args.__dict__, loss_test) ],
+                              dtype=[('label', 'U25'),
+                                     ('args', dict),
+                                     loss_dtype,
+                                     ])
     if os.path.isfile(meta_npz_fname):
         meta_data = np.load(meta_npz_fname, allow_pickle=True)
 
@@ -202,11 +235,17 @@ def save_meta(meta_npz_fname, stats, args, label, loss='zo'):
         if label in labels:
             # we found a duplicate with the same number of parameters
             idx = np.where(label == labels)[0]
-            meta_train[idx] = new_entry_train
-            meta_test[idx] = new_entry_test
-            if len(idx) >=2:
-                print('Warning, more than one ducplicate of {} in {}'.format(num_parameters, meta_npz_fname))
+            try:
+                meta_train[idx] = new_entry_train
+                meta_test[idx] = new_entry_test
+            except ValueError:
+                # the two objects are not compatible, erase the old one
+                meta_train = new_entry_train
+                meta_test = new_entry_test
+
         else:
+
+            # the label is not there yet, add it at the end
 
             meta_train = np.vstack((meta_train, new_entry_train))
             meta_test = np.vstack((meta_test, new_entry_test))
