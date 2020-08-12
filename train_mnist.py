@@ -175,7 +175,7 @@ if __name__ == '__main__':
         parameters, lr=args.learning_rate, momentum=0.95
     )
     #lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
-    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=500, gamma=0.5)
+    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=500, gamma=0.9)
 
     if 'optimizer' in checkpoint.keys():
 
