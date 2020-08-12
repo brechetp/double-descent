@@ -27,7 +27,7 @@ let i=$beg
 let blocks=($nexp - 1)/$max_run+1
 
 for bcnt in `seq 1 $blocks`; do
-    sed -i "s/^\(#SBATCH -J\) $name/\1 $name-$bcnt/" $fname
+    sed -i "s/^\(#SBATCH -J\) .*$/\1 $name-$bcnt/" $fname
     sed -i "$i,`expr $i + $max_run - 1`s/^#*//" $fname
     sbatch $fname
     sed -i "$i,`expr $i + $max_run - 1`s/^/#/" $fname

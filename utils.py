@@ -165,6 +165,13 @@ def num_parameters(model, only_require_grad=False):
         '''Return the number of parameters in the model'''
         return sum(p.numel() for p in model.parameters() if not only_require_grad or p.requires_grad)
 
+def get_norm_weights(model):
+
+    norm_squared = 0.
+    for p in model.parameters():
+        norm_squared += p.pow(2).sum()
+
+    return norm_squared.sqrt()
 
 def parse_transform(fname, *args):
     '''Returns the transform if any'''
@@ -616,3 +623,4 @@ def parse_log_file(fname, *args):
             pass
 
     return ret
+
