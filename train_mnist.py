@@ -198,6 +198,7 @@ if __name__ == '__main__':
         'num_parameters': num_parameters,
         'num_samples_train': num_samples_train,
         'lr': [],
+        'norm_weights': [],
     }
 
     if 'stats' in checkpoint.keys():
@@ -295,6 +296,10 @@ if __name__ == '__main__':
         stats['loss_test']['ce'].append(loss_test[1])
         stats['loss_test']['mse'].append(loss_test[2])
         stats['epochs'].append(epoch)
+
+        norm_weights = utils.get_norm_weights(model)
+
+        stats['norm_weights'].append(norm_weights.item())
         #lr_scheduler.step(loss)
         lr_scheduler.step()
         stats['lr'].append(lr_scheduler.get_last_lr())
@@ -332,6 +337,14 @@ if __name__ == '__main__':
         ax.set_title('Cross-entropy loss')
         ax.set_yscale('log')
         plt.savefig(fname=os.path.join(output_path, 'cross_entropy_loss.pdf'))
+
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.plot(stats['epochs'], stats['norm_weights'])
+        ax.set_title('Norm of the weights')
+        #ax.set_yscale('locwg')
+        plt.savefig(fname=os.path.join(output_path, 'norm_weights.pdf'))
+
 
         fig=plt.figure()
         plt.plot(stats['epochs'], stats['lr'], label='lr')

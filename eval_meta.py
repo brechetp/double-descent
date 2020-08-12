@@ -4,6 +4,8 @@ import torch
 import glob
 import os
 import matplotlib.pyplot as plt
+from collections import defaultdict
+import utils
 
 def default_meta_dir(names):
     '''Returna the default meta directory name from the names for the experiments'''
@@ -33,12 +35,20 @@ def main(argv):
         for f in checkpoints_lst:
             dirname, basename = os.path.split(f)
 
+            log_fname = os.path.join(dirname, 'logs.txt')
             checkpoint = torch.load(f, map_location=device)
             args = checkpoint['args']
             stats = checkpoint['stats']
             if argv.auto:  # overrides the input parameters
                 meta_dir=os.path.join(os.path.dirname(dirname), 'eval_meta')
                 meta_name='auto'
+            archi = utils.parse_archi(log_fname)
+            model = utils.construct_FCN(archi)
+            norm_weights = utils.get_norm_weights(model)
+            if not 'norm_weights' in stats.keys():
+                # legacy for when the norm of the weights was not tracked
+                stats['norm_weights'] = [norm_weights]  # has to be a list
+
             meta_path = os.path.join(meta_dir, meta_name)
             os.makedirs(meta_path, exist_ok=True)
             meta_fname = os.path.join(meta_path, 'data.npz')
@@ -63,14 +73,32 @@ def main(argv):
             meta_test = meta_data['test']
 
             loss_train = meta_train['loss'].ravel()#[select]
-            loss_test = meta_test['loss']#[select]
+            loss_test = meta_test['loss'].ravel()#[select]
+
+            norm_weights = meta_train['norm_weights'].ravel()
+
+            losses_train = defaultdict(list)  # will keep the un raveled elements for the different losses
+            losses_test = defaultdict(list)
+            for (a, b) in zip(loss_train, loss_test):
+                # each element is a dict...
+                for key in a.keys():
+                    losses_train[key].append(a[key])
+                    losses_test[key].append(b[key])
+
+            for key in losses_train.keys():
+                losses_train[key] = np.array(losses_train[key])
+                losses_test[key] = np.array(losses_test[key])
+
 
             if argv.abscisse == 'num_parameters': # if the abscisse is the number of model parameters
                 x = meta_train['num_parameters'].ravel()
                 order = np.argsort(x)
                 x = x[order]
-                loss_train = loss_train[order]
-                loss_test = loss_test[order]
+                for key in losses_train.keys():  # assumes a dictionnary
+                    losses_train[key] = losses_train[key][order]
+                    losses_test[key] = losses_test[key][order]
+                norm_weights = norm_weights[order]
+
             else:
                 x = meta_train['label'].ravel()  # should be the same for the test data
             #select = np.where([l.find('gpw') == 0 for l in labels])
@@ -87,17 +115,35 @@ def main(argv):
                 fname = '{}.txt'.format(key.translate(trantab))
                 save_dict(val, fname=os.path.join(output_path, fname))
 
+            TITLE = {
+                'zo': 'Classification error',
+                'mse': 'Mean squared loss',
+                'ce': 'Cross-entropy loss'
+            }
+            for key in losses_train.keys():
+                fig = plt.figure()
+                ax = fig.add_subplot(111)
+                ax.plot(x, losses_train[key], label='train')
+                ax.plot(x, losses_test[key], label='test')
+                if argv.log_xscale:
+                    ax.set_xscale('log')
+                ax.legend()
+                ax.set_title(TITLE[key])
+                plt.savefig(os.path.join(output_path, '{}.pdf'.format(key)), format='pdf')
+                plt.close()
+
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.plot(x, loss_train, label='train')
-            ax.plot(x, loss_test, label='test')
+            ax.plot(x, norm_weights)
             if argv.log_xscale:
                 ax.set_xscale('log')
-            ax.legend()
-            ax.set_title('Classification error')
-            plt.savefig(os.path.join(output_path, 'losses.pdf'), format='pdf')
-            plt.close()
+            ax.set_title('Mean weight norm')
+            plt.savefig(os.path.join(output_path, 'norm_weights.pdf'.format(key)), format='pdf')
+
+            plt.close('all')
             print('Done!')
+
+
 
 
 def save_dict(d, fname):
@@ -144,20 +190,39 @@ def get_diff_args(meta_data, common_args):
 
 
 
-def save_meta(meta_npz_fname, stats, args, label):
+def save_meta(meta_npz_fname, stats, args, label, loss='zo'):
     '''accumulate the obeservation in a meta file'''
 
 
     #N_train = train_array.shape[1]
     #N_test = test_array.shape[1]
     if isinstance(stats['loss_train'], dict):
-        loss_train, loss_test = stats['loss_train']['zo'][-1], stats['loss_test']['zo'][-1]
+        loss_train = dict()
+        loss_test = dict()
+        for key, val in stats['loss_train'].items():
+            loss_train[key] = val[-1]
+            loss_test[key] = stats['loss_test'][key][-1]
+        loss_dtype = ('loss', dict)
     else:
         loss_train, loss_test = stats['loss_train'][-1], stats['loss_test'][-1]
+        loss_dtype = ('loss', np.float32)
+
+    norm_weights = stats['norm_weights'][-1]  # should be a list
 
     num_parameters = stats['num_parameters']
-    new_entry_train = np.array([(label, args.__dict__, loss_train, num_parameters)], dtype=[('label', 'U25'), ('args', dict), ('loss', np.float32),('num_parameters', np.int32 )])
-    new_entry_test = np.array([(label, args.__dict__, loss_test, num_parameters)], dtype=[('label', 'U25'), ('args', dict), ('loss', np.float32), ('num_parameters', np.int32 )])
+
+    new_entry_train = np.array([(label, args.__dict__, loss_train, num_parameters, norm_weights)],
+                               dtype=[('label', 'U25'),
+                                      ('args', dict),
+                                      loss_dtype,
+                                      ('num_parameters', np.int32 ),
+                                      ('norm_weights', np.float32)
+                                      ])
+    new_entry_test = np.array([(label, args.__dict__, loss_test) ],
+                              dtype=[('label', 'U25'),
+                                     ('args', dict),
+                                     loss_dtype,
+                                     ])
     if os.path.isfile(meta_npz_fname):
         meta_data = np.load(meta_npz_fname, allow_pickle=True)
 
@@ -170,11 +235,17 @@ def save_meta(meta_npz_fname, stats, args, label):
         if label in labels:
             # we found a duplicate with the same number of parameters
             idx = np.where(label == labels)[0]
-            meta_train[idx] = new_entry_train
-            meta_test[idx] = new_entry_test
-            if len(idx) >=2:
-                print('Warning, more than one ducplicate of {} in {}'.format(num_parameters, meta_npz_fname))
+            try:
+                meta_train[idx] = new_entry_train
+                meta_test[idx] = new_entry_test
+            except ValueError:
+                # the two objects are not compatible, erase the old one
+                meta_train = new_entry_train
+                meta_test = new_entry_test
+
         else:
+
+            # the label is not there yet, add it at the end
 
             meta_train = np.vstack((meta_train, new_entry_train))
             meta_test = np.vstack((meta_test, new_entry_test))

@@ -165,6 +165,15 @@ def num_parameters(model, only_require_grad=False):
         '''Return the number of parameters in the model'''
         return sum(p.numel() for p in model.parameters() if not only_require_grad or p.requires_grad)
 
+def get_norm_weights(model):
+
+    norm_squared = 0.
+    N = 0  # the total number of parameters
+    for p in model.parameters():
+        norm_squared += p.pow(2).sum()
+        N += p.numel()
+
+    return norm_squared.sqrt() / N
 
 def parse_transform(fname, *args):
     '''Returns the transform if any'''
@@ -225,7 +234,7 @@ def parse_archi(fname, *args):
 
     nets = {}
 
-    net_re = re.compile('net_(G|F|D|Q|D3) = ')
+    net_re = re.compile('Model:')
     LAYERS = {
         'Linear': nn.Linear,
         'BatchNorm1d': nn.BatchNorm1d,
@@ -247,76 +256,31 @@ def parse_archi(fname, *args):
                 new_net = net_re.match(line)
                 if new_net:
                     c_depth = 1
-                    net_name = new_net.group(0).strip().rstrip('= ')
-                    nets[net_name] = {}
+                    net = dict()
+                    net_name = line.split(' ')[1].rstrip('(')
                     depth += line.count("(")
                     depth -= line.count(")")
 
-
-                    if depth == 0: # we have a one line defined layer
-                        # the rest of the line
-                        layer_str = line[new_net.span(0)[0]+new_net.span(0)[1]:]
-                        par_pos = layer_str.find('(')
-                        layer_type = layer_str[:par_pos].strip()
-                        if layer_type != 'None':  # could be None
-                            layer_args = layer_str[par_pos+1:].strip().rstrip(')') # leave trailing )
-                            args, kwargs = parse_layer_args(layer_args)
-                            nets[net_name]  = LAYERS[layer_type](*args, **kwargs)
-                        else:
-                            nets[net_name] = None
-                    else:
-
-                        if net_name == 'net_Q':
-                            # have to checkout the class of the Q network
-                            layer_str = line[new_net.span(0)[0]+new_net.span(0)[1]:]
-                            par_pos = layer_str.find('(')
-                            Q_class = layer_str[:par_pos].strip()
-                            nets[net_name]['class'] = Q_class
-                            if Q_class == 'Sequential':
-                                nn_module_type = nn.Sequential
-                                nn_layers = []
-                                depth = 2
-
-
             elif depth == 1:  # definition of the modules (attributes of the network)
-                # WARNIN: single parameters are not printed in the file? E.g.
-                # Dot class for Q
-                # the depth for decoder, encoder are
-
 
                 fields = line.split(':')
                 if len(fields) == 2:
+                    # should always be the case
+                    # not the case when closing the sequential module
                     par_pos = fields[1].find('(')
                     module_name = fields[0].strip().rstrip(')').lstrip('(')
-                    module_type = fields[1][:par_pos].strip()
-                    if not module_type or par_pos == -1:
-                        # attibute with value
-                        attr_name = fields[0].strip()
-                        attr_value_str = fields[1].strip()
-                        nets[net_name][attr_name] = cast(attr_value_str)  # no module type, attribue : value
-                        pass
-                    else:
-                        if 'module_type' not in nets[net_name].keys():
-                            nets[net_name]['module_type'] = module_type
+                    # will me main, etc.
+                    module_type = fields[1][:par_pos].strip()  # Sequential
 
-                        if module_type == 'Sequential':
-                            nn_module_type = nn.Sequential
-                            nn_layers = []
-                        elif module_type in ('Decoder', 'Encoder'):
-                            depth = 0
-                        elif module_type in LAYERS.keys():  # direclty a layer
-                            layer_type = module_type
-                            layer_args = fields[1][par_pos+1:].strip().rstrip(')') # leave trailing )
-                            args, kwargs = parse_layer_args(layer_args)
-                            nets[net_name][module_name] = LAYERS[layer_type](*args, **kwargs)
-                        else:
-                            pass
-                            #raise NotImplementedError(net_name, module_type)
+                    if module_type == 'Sequential':
+                        nn_module_type = nn.Sequential
+                        nn_layers = []
+                    else:
+                        raise NotImplementedError
+
                 depth += line.count("(")
                 depth -= line.count(")")
 
-                if module_type == 'Sequential' and depth == 1:  # one liner (empty) sequential
-                    nets[net_name][module_name] = nn.Sequential()
 
             elif depth == 2:
 
@@ -332,29 +296,33 @@ def parse_archi(fname, *args):
                     layer_type = fields[1][:fields[1].find('(')].strip()
                     layer_args = fields[1][fields[1].find('(')+1:].strip().rstrip(')') # leave trailing )
                     args, kwargs = parse_layer_args(layer_args)
-                    if layer_type.find('Conv') != -1:
-                        if layer_type.find('ConvT') != -1:  # conv transpose
-                            if c_depth == 1:  # should take the first one
-                                conv_dim = args[0]
-                        else:
-                            conv_dim = args[1]  # should take the last one
-                        c_depth *= 2
                     try:
                         nn_layers.append((layer_name, LAYERS[layer_type](*args, **kwargs)))
                     except TypeError as e:
                         print(e)
                         print(layer_type)
                 if depth == 1:  # end of sequential
-                    nets[net_name][module_name] = nn_module_type(OrderedDict(nn_layers))
+                    net[module_name] = nn_module_type(OrderedDict(nn_layers)) # is sequential
                     nn_layers = []
-                    if module_name.find('conv') != -1:
-                        nets[net_name]['depth'] = c_depth
-                        nets[net_name]['dim'] = conv_dim
-                    if net_name == 'net_Q' and Q_class == 'Sequential':
-                        depth = 0
 
 
-    return nets
+    return net
+
+
+def construct_FCN(archi):
+
+    class FCN(nn.Module):
+
+        def __init__(self, main):
+            super().__init__()
+            self.main = main
+
+        def forward(self, x):
+
+            return self.main(x.view(x.size(0), -1))
+
+    return FCN(archi['main'])
+
 
 
 def construct_G(archi_G, image_size):
@@ -616,3 +584,4 @@ def parse_log_file(fname, *args):
             pass
 
     return ret
+
