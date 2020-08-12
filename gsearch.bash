@@ -9,11 +9,11 @@ cp "$dir/$template" $fname
 
 sed -i "s/^\(#SBATCH -J\) test_slurm/\1 $name/" $fname
 
-#for n in 2 10 20 70 80 100;
-for n in 60;
+for n in 36 37 38 42 43;
+#for n in 60;
 do
     np=`echo "$n*10^4" | bc` &&
-    echo "#srun python train_mnist.py --nepochs 1000  --num_parameters $np --vary_name size_max num_parameters  --no-softmax --size_max 60000 --learning_rate 0.001" >> $fname; 
+    echo "#srun python train_mnist.py --nepochs 6000  --num_parameters $np --vary_name size_max num_parameters  --no-softmax --size_max 4000 --learning_rate 0.01" >> $fname; 
     
 done;
 

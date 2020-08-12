@@ -173,7 +173,7 @@ def get_norm_weights(model):
         norm_squared += p.pow(2).sum()
         N += p.numel()
 
-    return norm_squared.sqrt() / N
+    return (norm_squared/N).sqrt()
 
 def parse_transform(fname, *args):
     '''Returns the transform if any'''
