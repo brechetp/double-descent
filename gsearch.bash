@@ -9,10 +9,10 @@ cp "$dir/$template" $fname
 sed -i "s/^\(#SBATCH -J\) test_slurm/\1 $name/" $fname
 
 #for n in 36 37 38 39 40 41 42 43 44;
-for n in 59 60 61;
+for n in 55 59 60 61 65;
 do
     np=`echo "$n*10^4" | bc` &&
-    echo "#srun python train_mnist.py --nepochs 6000  --num_parameters $np --vary_name size_max num_parameters  --no-softmax --size_max None --learning_rate 0.01" >> $fname; 
+    echo "#srun python train_mnist.py --nepochs 1000  --num_parameters $np --vary_name size_max num_parameters  --no-softmax --size_max 60000 --learning_rate 0.001" >> $fname; 
     
 done;
 
@@ -27,7 +27,7 @@ let i=$beg
 let blocks=($nexp - 1)/$max_run+1
 
 for bcnt in `seq 1 $blocks`; do
-    sed -i "s/^\(#SBATCH -J\) $name/\1 $name-$bcnt/" $fname
+    sed -i "s/^\(#SBATCH -J\) .*$/\1 $name-$bcnt/" $fname
     sed -i "$i,`expr $i + $max_run - 1`s/^#*//" $fname
     sbatch $fname
     sed -i "$i,`expr $i + $max_run - 1`s/^/#/" $fname
