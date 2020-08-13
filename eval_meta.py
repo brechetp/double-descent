@@ -46,9 +46,9 @@ def main(argv):
                 archi = utils.parse_archi(log_fname)
                 model = utils.construct_FCN(archi)
                 norm_weights = utils.get_norm_weights(model)
-                if not 'norm_weights' in stats.keys():
+                #if not 'norm_weights' in stats.keys():
                     # legacy for when the norm of the weights was not tracked
-                    stats['norm_weights'] = [norm_weights]  # has to be a list
+                stats['norm_weights'] = [norm_weights]  # has to be a list
 
                 meta_path = os.path.join(meta_dir, meta_name)
                 os.makedirs(meta_path, exist_ok=True)
@@ -162,7 +162,7 @@ def main(argv):
         ax.plot(x, norm_weights, marker='o')
         if argv.log_xscale:
             ax.set_xscale('log')
-        ax.set_title('Mean weight norm')
+        ax.set_title('Scaled weight norm')
         plt.savefig(os.path.join(output_path, 'norm_weights.pdf'), format='pdf')
 
         fig = plt.figure()
