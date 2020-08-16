@@ -13,7 +13,7 @@ for n in 1 10 20 36 37 38 40 42 43 45 50 60 100;
 #for n in 60;
 do
     np=`echo "$n*10^4" | bc` &&
-    echo "#srun python train_mnist.py --nepochs 6000  --num_parameters $np --vary_name gd_mode size_max num_parameters --gd_mode stochastic --no-softmax --size_max 4000 --learning_rate 0.01" >> $fname; 
+    echo "#srun python train_mnist.py --dataset cifar10 -o results/cifar10/200813 --nepochs 3000  --num_parameters $np --vary_name gd_mode size_max num_parameters --gd_mode stochastic --no-softmax --size_max 4000 --learning_rate 0.01" >> $fname; 
     
 done;
 

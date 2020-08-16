@@ -148,7 +148,7 @@ def main(argv):
             ax = fig.add_subplot(111)
             ax.plot(x, losses_train[key], marker='o', label='train')
             ax.plot(x, losses_test[key], marker='x', label='test')
-            if argv.log_xscale:
+            if argv.xscale == 'log':
                 ax.set_xscale('log')
             ax.legend()
             ax.set_xlabel(ABSCISSES[argv.abscisse])
@@ -160,7 +160,7 @@ def main(argv):
         fig = plt.figure()
         ax = fig.add_subplot(111)
         ax.plot(x, norm_weights, marker='o')
-        if argv.log_xscale:
+        if argv.xscale == 'log':
             ax.set_xscale('log')
         ax.set_title('Scaled weight norm')
         plt.savefig(os.path.join(output_path, 'norm_weights.pdf'), format='pdf')
@@ -168,7 +168,7 @@ def main(argv):
         fig = plt.figure()
         ax = fig.add_subplot(111)
         ax.plot(x, nepochs, marker='o')
-        if argv.log_xscale:
+        if argv.xscale == 'log':
             ax.set_xscale('log')
         ax.set_title('Training epochs')
         plt.savefig(os.path.join(output_path, 'epochs.pdf'), format='pdf')
@@ -307,8 +307,8 @@ if __name__ == '__main__':
     parser.add_argument('--auto', action='store_true', help='automatically figure out the different meta groups to evaluate (based on common experiment name)')
     parser.add_argument('--meta_dir', type=str, help='the directory for the meta comparison')
     parser.add_argument('--meta_name', type=str, help='the name for the meta group')
-    parser.add_argument('--abscisse', default='label', choices=['label', 'num_parameters'], help='The choice for the abscisse of the plot')
-    parser.add_argument('--log_xscale', action='store_true', help='Use a logarithmic scale for the abscinsse')
+    parser.add_argument('--abscisse', default='num_parameters', choices=['label', 'num_parameters'], help='The choice for the abscisse of the plot')
+    parser.add_argument('--xscale', default='log', choices=['log', 'lin'], help='Use a logarithmic scale for the abscinsse')
     parser.add_argument('--plot_only', action='store_true', help='compute the data to be plotted')
 
     #  parser.add_argument('--dry_run', action='store_true', help='dry run mode (do not call sbatch, only copy the files)')

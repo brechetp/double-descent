@@ -3,7 +3,7 @@ import torch
 from datasets.rsna import RSNADataset
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader, SubsetRandomSampler, SequentialSampler
-from torchvision.datasets import MNIST
+from torchvision.datasets import MNIST, CIFAR10
 import torch.nn as nn
 from collections import OrderedDict
 from subprocess import Popen, PIPE
@@ -59,6 +59,13 @@ def get_dataset(dataset='rsna', dataroot='data/', imresize=None, augment=None, n
 
         train_dataset = MNIST(dataroot, train=True, transform=transform, download=True)
         test_dataset = MNIST(dataroot, train=False, transform=transform, download=True)
+
+    elif dataset.lower() == 'cifar10':
+
+        train_dataset = CIFAR10(dataroot, train=True, transform=transform, download=True)
+        test_dataset = CIFAR10(dataroot, train=False, transform=transform, download=True)
+
+
 
     return train_dataset, test_dataset, num_chs
 
